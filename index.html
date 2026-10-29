@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadística López 📊</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Plotly.js CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- jstat para cálculos estadísticos (t-test, chi-square, etc.) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
+
+    <!-- SheetJS (xlsx) para parsear Excel y CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        body {
+            background-color: #FFF0F5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+
+        h1, h2, h3, .brand-text {
+            color: #D81B60 !important;
+        }
+
+        /* Tarjetas de Métricas Personalizadas */
+        .metric-card {
+            background-color: #FFE4E1;
+            border-left: 5px solid #FF69B4;
+            border-radius: 10px;
+            padding: 12px 15px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .metric-card:hover {
+            transform: scale(1.02);
+            border-left-color: #D81B60;
+        }
+        .metric-title {
+            font-size: 13px;
+            color: #555555;
+            font-weight: bold;
+        }
+        .metric-value {
+            font-size: 20px;
+            color: #D81B60;
+            font-weight: bold;
+        }
+
+        /* Botones personalizados */
+        .btn-pink {
+            background-color: #FF69B4;
+            color: white;
+            border-radius: 20px;
+            padding: 8px 20px;
+            font-weight: bold;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .btn-pink:hover {
+            background-color: #D81B60;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Estilo de Pestañas Active/Inactive */
+        .tab-btn.active {
+            border-bottom: 3px solid #D81B60;
+            color: #D81B60;
+            font-weight: bold;
+        }
+        .tab-btn {
+            color: #777;
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+        .tab-btn:hover {
+            color: #D81B60;
+        }
+
+        /* Tabla estilizada */
+        .styled-table th {
+            background-color: #FF69B4;
+            color: white;
+        }
+        .styled-table tr:nth-child(even) {
+            background-color: #FFF5F8;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <!-- Encabezado Principal -->
+        <header class="bg-white p-6 rounded-xl shadow-sm border border-pink-100">
+            <h1 class="text-3xl font-extrabold flex items-center gap-2">
+                📊 Estadística López
+            </h1>
+            <p class="text-gray-600 mt-1">Aplicación interactiva profesional para el análisis de datos cuantitativos y cualitativos.</p>
+        </header>
+
+        <!-- Layout General: Sidebar Control + Contenido Principal -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+            <!-- Panel Lateral de Configuración -->
+            <aside class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-pink-100 h-fit space-y-4">
+                <h2 class="text-lg font-bold border-b border-pink-200 pb-2">📁 Configuración de Datos</h2>
+
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="usarEjemplo" checked class="accent-pink-500 w-4 h-4 rounded">
+                    <label for="usarEjemplo" class="text-sm font-medium text-gray-700">Usar datos de ejemplo</label>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-sm font-medium text-gray-700 block">Carga un archivo CSV o Excel</label>
+                    <input type="file" id="archivoCargado" accept=".csv, .xlsx, .xls" class="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 cursor-pointer">
+                </div>
+
+                <div id="statusAlert" class="p-3 rounded-lg text-xs font-semibold hidden"></div>
+            </aside>
+
+            <!-- Sección de Contenido -->
+            <main class="lg:col-span-3 space-y-6">
+
+                <!-- Vista Previa del Dataset -->
+                <section class="bg-white p-5 rounded-xl shadow-sm border border-pink-100">
+                    <h3 class="text-md font-bold mb-3">Vista previa de los datos</h3>
+                    <div id="previewTableContainer" class="overflow-x-auto max-h-48 border rounded-lg">
+                        <p class="text-xs text-gray-400 p-4 text-center">Cargando datos...</p>
+                    </div>
+                </section>
+
+                <!-- Pestañas de Análisis -->
+                <section class="bg-white rounded-xl shadow-sm border border-pink-100 overflow-hidden">
+                    <div class="flex border-b border-pink-100 bg-pink-50/50">
+                        <button class="tab-btn active text-sm font-medium" onclick="switchTab('tab1')">🎯 Variables Cuantitativas</button>
+                        <button class="tab-btn text-sm font-medium" onclick="switchTab('tab2')">📊 Variables Cualitativas y Asociación</button>
+                        <button class="tab-btn text-sm font-medium" onclick="switchTab('tab3')">📈 Gráficos Avanzados y Correlación</button>
+                    </div>
+
+                    <div class="p-6">
+                        <!-- PESTAÑA 1: VARIABLES CUANTITATIVAS -->
+                        <div id="tab1" class="tab-content space-y-6">
+                            <h3 class="text-lg font-bold">Análisis Descriptivo e Inferencial</h3>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-700">Selecciona una variable cuantitativa:</label>
+                                <select id="var_cuant" class="mt-1 block w-full md:w-1/2 p-2 text-sm border rounded-lg bg-pink-50/30 border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400" onchange="renderTab1()"></select>
+                            </div>
+
+                            <div class="space-y-2">
+                                <h4 class="text-md font-bold text-gray-700">Estadísticos Descriptivos</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="metricsGrid">
+                                    <!-- Las tarjetas se generan dinámicamente -->
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <h4 class="text-md font-bold text-gray-700">Visualización de Distribución</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div id="fig_hist" class="w-full h-80 border rounded-lg p-2"></div>
+                                    <div id="fig_box" class="w-full h-80 border rounded-lg p-2"></div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3 pt-4 border-t border-gray-100">
+                                <h4 class="text-md font-bold text-gray-700">Prueba t de Student (Comparación de Medias)</h4>
+                                <div id="tTestControls" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="text-xs font-semibold text-gray-600">Variable Categórica:</label>
+                                        <select id="cat_t_test" class="w-full p-2 text-sm border rounded-lg" onchange="updateTTestGroups()"></select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-gray-600">Grupo 1:</label>
+                                        <select id="cat1" class="w-full p-2 text-sm border rounded-lg" onchange="calculateTTest()"></select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-gray-600">Grupo 2:</label>
+                                        <select id="cat2" class="w-full p-2 text-sm border rounded-lg" onchange="calculateTTest()"></select>
+                                    </div>
+                                </div>
+                                <div id="tTestResult" class="p-4 rounded-lg bg-pink-50/50 text-sm space-y-1"></div>
+                            </div>
+                        </div>
+
+                        <!-- PESTAÑA 2: VARIABLES CUALITATIVAS -->
+                        <div id="tab2" class="tab-content space-y-6 hidden">
+                            <h3 class="text-lg font-bold">Análisis de Frecuencias y Prueba Chi-Cuadrada ($\chi^2$)</h3>
+
+                            <div>
+                                <label class="text-sm font-semibold text-gray-700">Selecciona una variable cualitativa:</label>
+                                <select id="cat_analisis" class="mt-1 block w-full md:w-1/2 p-2 text-sm border rounded-lg bg-pink-50/30 border-pink-200" onchange="renderTab2()"></select>
+                            </div>
+
+                            <div class="space-y-2">
+                                <h4 class="text-md font-bold text-gray-700">Tabla de Frecuencias</h4>
+                                <div id="freqTableContainer" class="overflow-x-auto border rounded-lg"></div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div id="fig_bar" class="w-full h-80 border rounded-lg p-2"></div>
+                                <div id="fig_pie" class="w-full h-80 border rounded-lg p-2"></div>
+                            </div>
+
+                            <div class="space-y-3 pt-4 border-t border-gray-100">
+                                <h4 class="text-md font-bold text-gray-700">Prueba de Chi-Cuadrada ($\chi^2$) de Independencia</h4>
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-600">Selecciona una segunda variable para la asociación:</label>
+                                    <select id="cat_analisis_2" class="w-full md:w-1/2 p-2 text-sm border rounded-lg" onchange="calculateChiSquare()"></select>
+                                </div>
+                                <div id="chiSquareTableContainer" class="overflow-x-auto border rounded-lg"></div>
+                                <div id="chiSquareResult" class="p-4 rounded-lg bg-pink-50/50 text-sm space-y-1"></div>
+                            </div>
+                        </div>
+
+                        <!-- PESTAÑA 3: CORRELACIONES Y DISPERSIÓN -->
+                        <div id="tab3" class="tab-content space-y-6 hidden">
+                            <h3 class="text-lg font-bold">Exploración de Correlaciones y Dispersión</h3>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-600">Variable Eje X (Scatter Plot):</label>
+                                    <select id="var_x" class="w-full p-2 text-sm border rounded-lg" onchange="renderTab3()"></select>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-600">Variable Eje Y (Scatter Plot):</label>
+                                    <select id="var_y" class="w-full p-2 text-sm border rounded-lg" onchange="renderTab3()"></select>
+                                </div>
+                            </div>
+
+                            <div id="fig_scatter" class="w-full h-96 border rounded-lg p-2"></div>
+                            <div id="pearsonResult" class="text-sm font-medium text-gray-700"></div>
+
+                            <div class="space-y-2 pt-4 border-t border-gray-100">
+                                <h4 class="text-md font-bold text-gray-700">Mapa de Calor (Matriz de Correlación)</h4>
+                                <div id="fig_heatmap" class="w-full h-96 border rounded-lg p-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- LOGICA DE LA APLICACIÓN -->
+    <script>
+        let rawData = [];
+        let numCols = [];
+        let catCols = [];
+
+        const rosaPaleta = ["#FF69B4", "#D81B60", "#FFB6C1", "#FFC0CB", "#DB7093", "#C71585"];
+
+        // Dataset Sintético Inicial
+        function generateSyntheticData() {
+            const data = [];
+            const n = 200;
+            const generos = ["Femenino", "Masculino", "Otro"];
+            const educacion = ["Secundaria", "Licenciatura", "Posgrado"];
+            const satis = ["Sí", "No"];
+
+            // Pseudo-random con semilla aproximada
+            for (let i = 0; i < n; i++) {
+                const edad = Math.floor(18 + Math.random() * 47);
+                const ingresos = Math.max(500, Math.min(6000, 2500 + Math.random() * 1600 - 800));
+                const calificacion = Math.round((1 + Math.random() * 9) * 10) / 10;
+                
+                const genProb = Math.random();
+                const genero = genProb < 0.55 ? generos[0] : (genProb < 0.90 ? generos[1] : generos[2]);
+
+                const eduProb = Math.random();
+                const edu = eduProb < 0.3 ? educacion[0] : (eduProb < 0.8 ? educacion[1] : educacion[2]);
+
+                const sat = Math.random() < 0.7 ? satis[0] : satis[1];
+
+                data.push({
+                    "Edad": edad,
+                    "Ingresos (USD)": Math.round(ingresos),
+                    "Calificación": calificacion,
+                    "Género": genero,
+                    "Nivel_Educativo": edu,
+                    "Satisfecho": sat
+                });
+            }
+            return data;
+        }
+
+        // Inicialización
+        document.addEventListener("DOMContentLoaded", () => {
+            loadDataset(generateSyntheticData(), "Dataset de ejemplo cargado con éxito.");
+            
+            document.getElementById("usarEjemplo").addEventListener("change", (e) => {
+                if (e.target.checked) {
+                    document.getElementById("archivoCargado").value = "";
+                    loadDataset(generateSyntheticData(), "Dataset de ejemplo cargado con éxito.");
+                }
+            });
+
+            document.getElementById("archivoCargado").addEventListener("change", handleFileUpload);
+        });
+
+        // Manejo de Carga de Archivos (CSV / Excel)
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById("usarEjemplo").checked = false;
+            const reader = new FileReader();
+
+            reader.onload = function(evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (json.length === 0) throw new Error("El archivo está vacío.");
+
+                    loadDataset(json, "¡Archivo cargado con éxito!");
+                } catch (err) {
+                    showAlert("Error al leer el archivo: " + err.message, "error");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function showAlert(msg, type) {
+            const el = document.getElementById("statusAlert");
+            el.classList.remove("hidden", "bg-green-100", "text-green-800", "bg-red-100", "text-red-800");
+            if (type === "error") {
+                el.classList.add("bg-red-100", "text-red-800");
+            } else {
+                el.classList.add("bg-green-100", "text-green-800");
+            }
+            el.innerText = msg;
+        }
+
+        // Cargar Dataset y Categorizar Columnas
+        function loadDataset(data, successMsg) {
+            rawData = data;
+            showAlert(successMsg, "success");
+
+            // Clasificar Columnas
+            const keys = Object.keys(rawData[0] || {});
+            numCols = [];
+            catCols = [];
+
+            keys.forEach(k => {
+                const sample = rawData.map(d => d[k]).filter(v => v !== null && v !== undefined);
+                const isNumeric = sample.every(v => typeof v === 'number' || !isNaN(Number(v)));
+                if (isNumeric) {
+                    numCols.push(k);
+                    // Asegurar casteo numérico
+                    rawData.forEach(d => d[k] = Number(d[k]));
+                } else {
+                    catCols.push(k);
+                }
+            });
+
+            renderPreviewTable();
+            populateDropdowns();
+            renderTab1();
+            renderTab2();
+            renderTab3();
+        }
+
+        // Renderizar Tabla de Vista Previa
+        function renderPreviewTable() {
+            const container = document.getElementById("previewTableContainer");
+            if (rawData.length === 0) return;
+
+            const cols = Object.keys(rawData[0]);
+            const rows = rawData.slice(0, 10);
+
+            let html = `<table class="min-w-full text-xs text-left styled-table"><thead><tr>`;
+            cols.forEach(c => html += `<th class="p-2 border-b">${c}</th>`);
+            html += `</tr></thead><tbody>`;
+
+            rows.forEach(r => {
+                html += `<tr class="border-b">`;
+                cols.forEach(c => html += `<td class="p-2">${r[c]}</td>`);
+                html += `</tr>`;
+            });
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        // Llenar Selects
+        function populateDropdowns() {
+            populateSelect("var_cuant", numCols);
+            populateSelect("cat_analisis", catCols);
+            populateSelect("cat_t_test", catCols);
+            populateSelect("var_x", numCols, 0);
+            populateSelect("var_y", numCols, Math.min(1, numCols.length - 1));
+
+            updateTTestGroups();
+        }
+
+        function populateSelect(id, options, defaultIdx = 0) {
+            const sel = document.getElementById(id);
+            sel.innerHTML = "";
+            options.forEach((opt, idx) => {
+                const el = document.createElement("option");
+                el.value = opt;
+                el.innerText = opt;
+                if (idx === defaultIdx) el.selected = true;
+                sel.appendChild(el);
+            });
+        }
+
+        // Navegación de Pestañas
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+            document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+
+            document.getElementById(tabId).classList.remove("hidden");
+            event.target.classList.add("active");
+
+            // Redibujar gráficos Plotly por ajuste de responsividad
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        // ==========================================
+        // PESTAÑA 1: CALCULOS Y GRAFICOS
+        // ==========================================
+        function renderTab1() {
+            if (numCols.length === 0) return;
+            const col = document.getElementById("var_cuant").value;
+            const vals = rawData.map(d => d[col]).filter(v => !isNaN(v)).sort((a,b) => a - b);
+
+            if (vals.length === 0) return;
+
+            // Cálculos Estadísticos
+            const n = vals.length;
+            const mean = jStat.mean(vals);
+            const std = jStat.stdev(vals, true);
+            const variance = jStat.variance(vals, true);
+            const median = jStat.median(vals);
+            const q1 = jStat.percentile(vals, 0.25);
+            const q2 = median;
+            const q3 = jStat.percentile(vals, 0.75);
+            const iqr = q3 - q1;
+            const range = vals[n - 1] - vals[0];
+            const cv = mean !== 0 ? (std / mean) * 100 : 0;
+            const skewness = jStat.skewness(vals);
+            const kurtosis = jStat.kurtosis(vals);
+
+            // Moda
+            const counts = {};
+            vals.forEach(v => counts[v] = (counts[v] || 0) + 1);
+            let mode = vals[0], maxCount = 0;
+            for (let k in counts) {
+                if (counts[k] > maxCount) { maxCount = counts[k]; mode = Number(k); }
+            }
+
+            // Cards Grid
+            const metrics = [
+                { t: "Media", v: mean.toFixed(2) },
+                { t: "Mediana", v: median.toFixed(2) },
+                { t: "Moda", v: mode.toFixed(2) },
+                { t: "Rango Total", v: range.toFixed(2) },
+                { t: "Desviación Estándar", v: std.toFixed(2) },
+                { t: "Varianza", v: variance.toFixed(2) },
+                { t: "Coef. Variación (CV %)", v: cv.toFixed(2) + "%" },
+                { t: "Rango Intercuartílico (IQR)", v: iqr.toFixed(2) },
+                { t: "Q1 (Cuartil 1)", v: q1.toFixed(2) },
+                { t: "Q2 (Mediana)", v: q2.toFixed(2) },
+                { t: "Q3 (Cuartil 3)", v: q3.toFixed(2) },
+                { t: "Asimetría / Curtosis", v: `${skewness.toFixed(2)} / ${kurtosis.toFixed(2)}` }
+            ];
+
+            let metricsHTML = "";
+            metrics.forEach(m => {
+                metricsHTML += `
+                    <div class="metric-card">
+                        <div class="metric-title">${m.t}</div>
+                        <div class="metric-value">${m.v}</div>
+                    </div>`;
+            });
+            document.getElementById("metricsGrid").innerHTML = metricsHTML;
+
+            // Histograma
+            Plotly.newPlot("fig_hist", [{
+                x: vals,
+                type: 'histogram',
+                marker: { color: rosaPaleta[0] }
+            }], {
+                title: `Histograma de ${col}`,
+                margin: { t: 40, l: 30, r: 10, b: 30 }
+            }, {responsive: true});
+
+            // Boxplot
+            Plotly.newPlot("fig_box", [{
+                y: vals,
+                type: 'box',
+                marker: { color: rosaPaleta[1] }
+            }], {
+                title: `Diagrama de Caja (Boxplot) de ${col}`,
+                margin: { t: 40, l: 30, r: 10, b: 30 }
+            }, {responsive: true});
+
+            calculateTTest();
+        }
+
+        function updateTTestGroups() {
+            const catCol = document.getElementById("cat_t_test").value;
+            if (!catCol) return;
+            const uniqueCats = [...new Set(rawData.map(d => d[catCol]).filter(Boolean))];
+
+            populateSelect("cat1", uniqueCats, 0);
+            populateSelect("cat2", uniqueCats, Math.min(1, uniqueCats.length - 1));
+
+            calculateTTest();
+        }
+
+        function calculateTTest() {
+            const numCol = document.getElementById("var_cuant").value;
+            const catCol = document.getElementById("cat_t_test").value;
+            const c1 = document.getElementById("cat1").value;
+            const c2 = document.getElementById("cat2").value;
+
+            const resDiv = document.getElementById("tTestResult");
+
+            if (!catCol || c1 === c2 || !c1 || !c2) {
+                resDiv.innerHTML = `<span class="text-yellow-600 font-semibold">Selecciona dos grupos categóricos distintos para la comparación.</span>`;
+                return;
+            }
+
+            const g1 = rawData.filter(d => d[catCol] === c1).map(d => d[numCol]).filter(v => !isNaN(v));
+            const g2 = rawData.filter(d => d[catCol] === c2).map(d => d[numCol]).filter(v => !isNaN(v));
+
+            if (g1.length < 2 || g2.length < 2) {
+                resDiv.innerHTML = `<span class="text-yellow-600 font-semibold">No hay suficientes datos en uno de los grupos.</span>`;
+                return;
+            }
+
+            // t-test para dos muestras independientes
+            const m1 = jStat.mean(g1), m2 = jStat.mean(g2);
+            const v1 = jStat.variance(g1, true), v2 = jStat.variance(g2, true);
+            const n1 = g1.length, n2 = g2.length;
+
+            const se = Math.sqrt((v1 / n1) + (v2 / n2));
+            const tStat = (m1 - m2) / se;
+            const df = Math.pow((v1 / n1) + (v2 / n2), 2) / (Math.pow(v1 / n1, 2) / (n1 - 1) + Math.pow(v2 / n2, 2) / (n2 - 1));
+            const pVal = 2 * (1 - jStat.studentt.cdf(Math.abs(tStat), df));
+
+            const isSignificant = pVal < 0.05;
+
+            resDiv.innerHTML = `
+                <div><strong>Estadístico t:</strong> <code class="bg-white px-1 border rounded">${tStat.toFixed(4)}</code></div>
+                <div><strong>Valor de p (p-value):</strong> <code class="bg-white px-1 border rounded">${pVal.toFixed(4)}</code></div>
+                <div class="mt-2 font-medium ${isSignificant ? 'text-pink-700' : 'text-blue-700'}">
+                    📢 <strong>Interpretación:</strong> ${isSignificant ? 
+                    `Existe una diferencia estadísticamente significativa en las medias de <strong>${numCol}</strong> entre los grupos <strong>${c1}</strong> y <strong>${c2}</strong> (p < 0.05).` : 
+                    `No se encontraron evidencias suficientes para afirmar una diferencia estadísticamente significativa en las medias (p >= 0.05).`}
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // PESTAÑA 2: CUALITATIVAS Y CHI-SQUARE
+        // ==========================================
+        function renderTab2() {
+            if (catCols.length === 0) return;
+            const col = document.getElementById("cat_analisis").value;
+
+            // Frecuencias
+            const counts = {};
+            let total = 0;
+            rawData.forEach(d => {
+                const val = d[col];
+                if (val !== undefined && val !== null) {
+                    counts[val] = (counts[val] || 0) + 1;
+                    total++;
+                }
+            });
+
+            const categories = Object.keys(counts);
+            let accum = 0;
+
+            let tableHTML = `<table class="min-w-full text-xs text-left styled-table">
+                <thead><tr>
+                    <th class="p-2">Categoría</th>
+                    <th class="p-2">Frecuencia Absoluta</th>
+                    <th class="p-2">Frecuencia Relativa (%)</th>
+                    <th class="p-2">Frecuencia Acumulada</th>
+                </tr></thead><tbody>`;
+
+            const absVals = [];
+            const relVals = [];
+
+            categories.forEach(cat => {
+                const abs = counts[cat];
+                const rel = ((abs / total) * 100).toFixed(2);
+                accum += abs;
+                absVals.push(abs);
+                relVals.push(rel);
+
+                tableHTML += `<tr class="border-b">
+                    <td class="p-2 font-medium">${cat}</td>
+                    <td class="p-2">${abs}</td>
+                    <td class="p-2">${rel}%</td>
+                    <td class="p-2">${accum}</td>
+                </tr>`;
+            });
+
+            tableHTML += `</tbody></table>`;
+            document.getElementById("freqTableContainer").innerHTML = tableHTML;
+
+            // Gráfico de Barras
+            Plotly.newPlot("fig_bar", [{
+                x: categories,
+                y: absVals,
+                type: 'bar',
+                marker: { color: rosaPaleta[1] }
+            }], {
+                title: `Gráfico de Barras para ${col}`,
+                margin: { t: 40, l: 30, r: 10, b: 30 }
+            }, {responsive: true});
+
+            // Gráfico de Pastel
+            Plotly.newPlot("fig_pie", [{
+                labels: categories,
+                values: absVals,
+                type: 'pie',
+                marker: { colors: rosaPaleta }
+            }], {
+                title: `Gráfico de Pastel para ${col}`,
+                margin: { t: 40, l: 30, r: 10, b: 30 }
+            }, {responsive: true});
+
+            // Llenar select secundario de chi-cuadrada
+            const remainingCats = catCols.filter(c => c !== col);
+            populateSelect("cat_analisis_2", remainingCats);
+            calculateChiSquare();
+        }
+
+        function calculateChiSquare() {
+            const col1 = document.getElementById("cat_analisis").value;
+            const col2 = document.getElementById("cat_analisis_2").value;
+
+            const resDiv = document.getElementById("chiSquareResult");
+            const tableDiv = document.getElementById("chiSquareTableContainer");
+
+            if (!col2 || col1 === col2) {
+                tableDiv.innerHTML = "";
+                resDiv.innerHTML = `<span class="text-yellow-600 font-semibold">Se necesitan al menos dos columnas cualitativas para realizar la prueba.</span>`;
+                return;
+            }
+
+            // Construir Tabla de Contingencia
+            const c1Vals = [...new Set(rawData.map(d => d[col1]).filter(Boolean))];
+            const c2Vals = [...new Set(rawData.map(d => d[col2]).filter(Boolean))];
+
+            const matrix = {};
+            c1Vals.forEach(v1 => {
+                matrix[v1] = {};
+                c2Vals.forEach(v2 => matrix[v1][v2] = 0);
+            });
+
+            rawData.forEach(d => {
+                const v1 = d[col1], v2 = d[col2];
+                if (matrix[v1] && matrix[v1][v2] !== undefined) {
+                    matrix[v1][v2]++;
+                }
+            });
+
+            // HTML Tabla Contingencia
+            let html = `<table class="min-w-full text-xs text-left styled-table"><thead><tr><th class="p-2">${col1} \\ ${col2}</th>`;
+            c2Vals.forEach(v2 => html += `<th class="p-2">${v2}</th>`);
+            html += `<th class="p-2">Total</th></tr></thead><tbody>`;
+
+            const rowTotals = {}, colTotals = {};
+            c2Vals.forEach(v2 => colTotals[v2] = 0);
+            let grandTotal = 0;
+
+            c1Vals.forEach(v1 => {
+                html += `<tr class="border-b"><td class="p-2 font-bold">${v1}</td>`;
+                let rTot = 0;
+                c2Vals.forEach(v2 => {
+                    const count = matrix[v1][v2];
+                    rTot += count;
+                    colTotals[v2] += count;
+                    html += `<td class="p-2">${count}</td>`;
+                });
+                rowTotals[v1] = rTot;
+                grandTotal += rTot;
+                html += `<td class="p-2 font-bold">${rTot}</td></tr>`;
+            });
+
+            html += `<tr class="font-bold border-t"><td class="p-2">Total</td>`;
+            c2Vals.forEach(v2 => html += `<td class="p-2">${colTotals[v2]}</td>`);
+            html += `<td class="p-2">${grandTotal}</td></tr></tbody></table>`;
+
+            tableDiv.innerHTML = html;
+
+            // Test Chi-Cuadrada
+            let chi2 = 0;
+            c1Vals.forEach(v1 => {
+                c2Vals.forEach(v2 => {
+                    const obs = matrix[v1][v2];
+                    const exp = (rowTotals[v1] * colTotals[v2]) / grandTotal;
+                    if (exp > 0) {
+                        chi2 += Math.pow(obs - exp, 2) / exp;
+                    }
+                });
+            });
+
+            const df = (c1Vals.length - 1) * (c2Vals.length - 1);
+            const pVal = 1 - jStat.chisquare.cdf(chi2, df);
+
+            const isSignificant = pVal < 0.05;
+
+            resDiv.innerHTML = `
+                <div><strong>Estadístico $\chi^2$:</strong> <code class="bg-white px-1 border rounded">${chi2.toFixed(4)}</code></div>
+                <div><strong>Valor de p (p-value):</strong> <code class="bg-white px-1 border rounded">${pVal.toFixed(4)}</code></div>
+                <div><strong>Grados de Libertad:</strong> <code class="bg-white px-1 border rounded">${df}</code></div>
+                <div class="mt-2 font-medium ${isSignificant ? 'text-pink-700' : 'text-blue-700'}">
+                    📢 <strong>Interpretación:</strong> ${isSignificant ? 
+                    `Existe una asociación estadísticamente significativa entre <strong>${col1}</strong> y <strong>${col2}</strong> (p < 0.05).` : 
+                    `No se encontró evidencia de una asociación estadísticamente significativa entre las variables (p >= 0.05).`}
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // PESTAÑA 3: CORRELACIÓN Y SCATTER
+        // ==========================================
+        function renderTab3() {
+            if (numCols.length < 2) return;
+
+            const varX = document.getElementById("var_x").value;
+            const varY = document.getElementById("var_y").value;
+
+            const xVals = [], yVals = [];
+            rawData.forEach(d => {
+                if (!isNaN(d[varX]) && !isNaN(d[varY])) {
+                    xVals.push(d[varX]);
+                    yVals.push(d[varY]);
+                }
+            });
+
+            // Regresión Lineal simple para tendencia
+            const r = jStat.corrcoeff(xVals, yVals);
+            const n = xVals.length;
+            const t = (r * Math.sqrt(n - 2)) / Math.sqrt(1 - r * r);
+            const pVal = 2 * (1 - jStat.studentt.cdf(Math.abs(t), n - 2));
+
+            // Línea de tendencia OLS
+            const meanX = jStat.mean(xVals), meanY = jStat.mean(yVals);
+            let num = 0, den = 0;
+            for(let i=0; i<n; i++) {
+                num += (xVals[i] - meanX) * (yVals[i] - meanY);
+                den += Math.pow(xVals[i] - meanX, 2);
+            }
+            const slope = num / den;
+            const intercept = meanY - slope * meanX;
+
+            const minX = Math.min(...xVals), maxX = Math.max(...xVals);
+            const lineX = [minX, maxX];
+            const lineY = [slope * minX + intercept, slope * maxX + intercept];
+
+            Plotly.newPlot("fig_scatter", [
+                {
+                    x: xVals,
+                    y: yVals,
+                    mode: 'markers',
+                    type: 'scatter',
+                    name: 'Datos',
+                    marker: { color: rosaPaleta[1], size: 7 }
+                },
+                {
+                    x: lineX,
+                    y: lineY,
+                    mode: 'lines',
+                    type: 'scatter',
+                    name: 'Tendencia (OLS)',
+                    line: { color: rosaPaleta[0], width: 2 }
+                }
+            ], {
+                title: `Dispersión: ${varX} vs ${varY} (r = ${r.toFixed(3)})`,
+                margin: { t: 40, l: 40, r: 20, b: 40 }
+            }, {responsive: true});
+
+            document.getElementById("pearsonResult").innerHTML = `
+                <strong>Coeficiente de Correlación de Pearson (r):</strong> <code class="bg-white px-1 border rounded text-pink-700">${r.toFixed(4)}</code> 
+                (p-value: <code class="bg-white px-1 border rounded">${pVal.toFixed(4)}</code>)
+            `;
+
+            // Matriz de Correlaciones (Heatmap)
+            const zMatrix = [];
+            numCols.forEach(c1 => {
+                const row = [];
+                numCols.forEach(c2 => {
+                    const v1 = rawData.map(d => d[c1]);
+                    const v2 = rawData.map(d => d[c2]);
+                    row.push(jStat.corrcoeff(v1, v2));
+                });
+                zMatrix.push(row);
+            });
+
+            Plotly.newPlot("fig_heatmap", [{
+                z: zMatrix,
+                x: numCols,
+                y: numCols,
+                type: 'heatmap',
+                colorscale: [[0, "#FFF0F5"], [0.5, "#FF69B4"], [1, "#D81B60"]],
+                reversescale: false
+            }], {
+                title: "Matriz de Correlación de Variables Cuantitativas",
+                margin: { t: 40, l: 60, r: 20, b: 60 }
+            }, {responsive: true});
+        }
+    </script>
+</body>
+</html>
